@@ -37,41 +37,32 @@ export class GameScene extends Phaser.Scene {
   create() {
     const { width, height } = this.scale;
 
-    // Sky gradient
     this.add.rectangle(width / 2, height / 2, width, height, PALETTE.bg);
     this.drawSkyGradient();
 
-    // Isometric grid — positioned so grid fits in play area below HUD
     this.siteMap = new SiteMap(this, width / 2, 210);
 
-    // HUD overlay
     this.buildHUD();
 
-    // Event listeners
     this.events.on('hazardFixed',   this.onHazardFixed,   this);
     this.events.on('hazardExpired', this.onHazardExpired, this);
 
-    // Show level intro then start gameplay
     this.showLevelIntro(() => {
       this.startSpawning();
       this.startLevelTimer();
     });
   }
 
-  // ─── HUD ──────────────────────────────────────────────────────────────────
-
   buildHUD() {
     const { width } = this.scale;
     const D = 100;
 
-    // Background strip
     const hudBg = this.add.graphics().setDepth(D);
     hudBg.fillStyle(0x1A1208, 0.93);
     hudBg.fillRect(0, 0, width, 54);
     hudBg.lineStyle(1, PALETTE.panelBorder, 0.6);
     hudBg.lineBetween(0, 54, width, 54);
 
-    // Health label + bar
     this.add.text(14, 8, 'SITE HEALTH', { fontSize: '9px', color: '#7A6840', fontFamily: 'monospace' }).setDepth(D + 1);
     const barBg = this.add.graphics().setDepth(D + 1);
     barBg.fillStyle(0x3A2818, 1);
@@ -81,15 +72,12 @@ export class GameScene extends Phaser.Scene {
     this.healthPct = this.add.text(210, 24, '100%', { fontSize: '11px', color: PALETTE.textMain, fontFamily: 'monospace', fontStyle: 'bold' }).setDepth(D + 2);
     this.redrawHealthBar(100);
 
-    // Score
     this.add.text(width / 2 - 80, 8, 'SCORE', { fontSize: '9px', color: '#7A6840', fontFamily: 'monospace' }).setDepth(D + 1);
     this.scoreTxt = this.add.text(width / 2 - 80, 22, '0', { fontSize: '20px', color: PALETTE.textMain, fontFamily: 'monospace', fontStyle: 'bold' }).setDepth(D + 2);
 
-    // Level
     this.add.text(width / 2 + 10, 8, `LEVEL ${this.levelData.level}`, { fontSize: '9px', color: '#7A6840', fontFamily: 'monospace' }).setDepth(D + 1);
     this.add.text(width / 2 + 10, 22, this.levelData.name, { fontSize: '11px', color: '#C4A882', fontFamily: 'monospace' }).setDepth(D + 1);
 
-    // Timer
     this.add.text(width - 70, 8, 'TIME', { fontSize: '9px', color: '#7A6840', fontFamily: 'monospace' }).setDepth(D + 1);
     this.timerTxt = this.add.text(width - 70, 20, '60', { fontSize: '22px', color: PALETTE.textMain, fontFamily: 'monospace', fontStyle: 'bold' }).setDepth(D + 2);
   }
@@ -115,8 +103,6 @@ export class GameScene extends Phaser.Scene {
     this.timerTxt.setColor(s <= 10 ? '#CC2200' : s <= 20 ? '#CC8800' : PALETTE.textMain);
   }
 
-  // ─── Intro popup ─────────────────────────────────────────────────────────
-
   showLevelIntro(onDone) {
     const { width, height } = this.scale;
     const D = 200;
@@ -130,7 +116,7 @@ export class GameScene extends Phaser.Scene {
     const bg = this.add.graphics().setDepth(D + 1);
     bg.fillStyle(PALETTE.panelDark, 1);
     bg.fillRoundedRect(width / 2 - 230, height / 2 - 110, 460, 220, 12);
-    bg.lineStyle(2, '#DEB887' in PALETTE ? 0xDEB887 : 0xDEB887, 1);
+    bg.lineStyle(2, 0xDEB887, 1);
     bg.strokeRoundedRect(width / 2 - 230, height / 2 - 110, 460, 220, 12);
     panel.push(bg);
 
@@ -163,8 +149,6 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
-  // ─── Spawning ─────────────────────────────────────────────────────────────
-
   startSpawning() {
     this.spawnHazard();
     this.spawnTimer = this.time.addEvent({
@@ -196,8 +180,6 @@ export class GameScene extends Phaser.Scene {
     this.activeHazards.push(hazard);
   }
 
-  // ─── Level timer ──────────────────────────────────────────────────────────
-
   startLevelTimer() {
     this.updateTimerDisplay(this.levelTimerMs);
     this.levelClock = this.time.addEvent({
@@ -210,8 +192,6 @@ export class GameScene extends Phaser.Scene {
       },
     });
   }
-
-  // ─── Hazard events ────────────────────────────────────────────────────────
 
   onHazardFixed({ hazard, points }) {
     this.score += points;
@@ -232,8 +212,6 @@ export class GameScene extends Phaser.Scene {
       this.triggerGameOver();
     }
   }
-
-  // ─── Fact popup ───────────────────────────────────────────────────────────
 
   showFactPopup(typeData, points) {
     if (this.factVisible) return;
@@ -299,8 +277,6 @@ export class GameScene extends Phaser.Scene {
     this.time.delayedCall(400, () => this.input.once('pointerdown', dismiss));
   }
 
-  // ─── End conditions ───────────────────────────────────────────────────────
-
   triggerGameOver() {
     if (this.gameOver) return;
     this.gameOver = true;
@@ -342,8 +318,6 @@ export class GameScene extends Phaser.Scene {
       });
     });
   }
-
-  // ─── Helpers ──────────────────────────────────────────────────────────────
 
   drawSkyGradient() {
     const g = this.add.graphics().setDepth(-1);

@@ -83,7 +83,6 @@ export class SiteMap {
   draw() {
     this.tileGraphics.clear();
 
-    // Draw in painter's order (low col+row first = back)
     for (let sum = 0; sum <= GRID_ROWS + GRID_COLS - 2; sum++) {
       for (let col = Math.min(sum, GRID_COLS - 1); col >= Math.max(0, sum - GRID_ROWS + 1); col--) {
         const row = sum - col;
@@ -133,21 +132,12 @@ export class SiteMap {
     this.structureGraphics.forEach(g => g.destroy());
     this.structureGraphics = [];
 
-    // Barrels in storage zone
     this.drawBarrel(this.isoToScreen(6, 0));
     this.drawBarrel(this.isoToScreen(7, 1));
-
-    // Excavator in excavation zone
     this.drawExcavator(this.isoToScreen(0, 4));
-
-    // Drain cover in drainage zone
     this.drawDrainCover(this.isoToScreen(7, 3));
-
-    // Waste bins in waste zone
     this.drawWasteBin(this.isoToScreen(0, 1));
     this.drawWasteBin(this.isoToScreen(1, 0));
-
-    // Porta-cabin in general zone
     this.drawCabin(this.isoToScreen(3, 2));
   }
 

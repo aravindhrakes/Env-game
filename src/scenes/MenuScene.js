@@ -10,7 +10,6 @@ export class MenuScene extends Phaser.Scene {
 
     this.drawBgGrid();
 
-    // Title panel
     this.drawPanel(width / 2, 130, 540, 130);
     this.add.text(width / 2, 86, 'ECOSITE GUARDIAN', {
       fontSize: '34px',
@@ -31,7 +30,6 @@ export class MenuScene extends Phaser.Scene {
       fontFamily: 'monospace',
     }).setOrigin(0.5);
 
-    // How to play
     this.drawPanel(width / 2, 305, 540, 150);
     this.add.text(width / 2, 222, 'HOW TO PLAY', {
       fontSize: '13px',
@@ -44,7 +42,7 @@ export class MenuScene extends Phaser.Scene {
       '  Environmental hazards appear across the isometric construction site',
       '  CLICK hazards to fix them before they escalate',
       '  Hazards turn ORANGE then RED as urgency increases',
-      '  Each missed hazard drains site health — don\'t let it hit zero',
+      "  Each missed hazard drains site health — don't let it hit zero",
       '  Learn a real environmental fact with every fix',
     ];
 
@@ -56,10 +54,8 @@ export class MenuScene extends Phaser.Scene {
       }).setOrigin(0.5);
     });
 
-    // Legend
     this.drawLegend(width / 2, 408);
 
-    // Start button
     this.addButton(width / 2, 488, 'START MISSION', 220, 44, 0x2D5020, 0x4A8035, () => {
       this.scene.start('GameScene', { level: 1, score: 0 });
     });

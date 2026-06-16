@@ -33,7 +33,6 @@ export class ResultScene extends Phaser.Scene {
 
     let y = panelY + 32;
 
-    // Header
     let header = 'LEVEL COMPLETE';
     let headerColor = '#4A8035';
     if (this.gameOver)  { header = 'SITE CONTAMINATED';  headerColor = '#CC2200'; }
@@ -55,7 +54,6 @@ export class ResultScene extends Phaser.Scene {
     }).setOrigin(0.5);
     y += 40;
 
-    // Stats
     const stats = [
       { label: 'Score',            value: String(this.score),        color: '#DEB887' },
       { label: 'Hazards Fixed',    value: String(this.fixed),        color: '#6B8E23' },
@@ -77,7 +75,6 @@ export class ResultScene extends Phaser.Scene {
       y += 36;
     });
 
-    // Missed facts
     if (this.missed.length > 0) {
       y += 10;
       this.add.text(width / 2, y, 'ENVIRONMENTAL IMPACT (MISSED):', {
@@ -100,7 +97,6 @@ export class ResultScene extends Phaser.Scene {
 
     y = Math.max(y, panelY + panelH - 70);
 
-    // Buttons
     const hasNext = !this.gameOver && !isLast;
 
     if (hasNext) {
