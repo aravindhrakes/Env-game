@@ -1,0 +1,939 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EcoSite: Hidden Hazards — Construction Site Investigation</title>
+<style>
+/* ═══════════════════════════════════════════════════════════════
+   ECOSITE: HIDDEN HAZARDS  |  Cinematic Edition
+   ═══════════════════════════════════════════════════════════════ */
+
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
+
+:root{
+  --gold:   #C8A84B;
+  --gold2:  #8A6820;
+  --dark:   #080604;
+  --panel:  #0C0A08;
+  --border: #201C14;
+  --text:   #DDD0B8;
+  --green:  #3D7A45;
+  --red:    #8A2020;
+  --lbh:    10%;               /* letterbox height */
+  --sidebar:240px;
+}
+
+html,body{ width:100%;height:100%;overflow:hidden;background:var(--dark);
+  font-family:'Courier New',monospace; }
+
+/* ── Root layout ─────────────────────────────────────────────── */
+#root{ display:flex; width:100%; height:100%; }
+
+#game-wrap{ flex:1; position:relative; overflow:hidden; background:#050302; }
+
+/* ── Sidebar ─────────────────────────────────────────────────── */
+#sidebar{
+  width:var(--sidebar); min-width:var(--sidebar);
+  background:var(--panel);
+  border-left:1px solid var(--border);
+  display:flex; flex-direction:column;
+  padding:18px 14px 14px; z-index:10; overflow-y:auto;
+}
+
+/* ── Cinematic letterbox ─────────────────────────────────────── */
+.lb{
+  position:absolute; left:0; right:0;
+  height:var(--lbh); background:#000; z-index:50; pointer-events:none;
+}
+#lb-t{ top:0; }
+#lb-b{ bottom:0; }
+
+/* Subtle scan-line overlay */
+#lb-t::after,#lb-b::after{
+  content:''; position:absolute; inset:0;
+  background:repeating-linear-gradient(to bottom,
+    transparent 0px, transparent 2px,
+    rgba(255,255,255,0.015) 2px, rgba(255,255,255,0.015) 4px);
+}
+
+/* ── Scene layer ─────────────────────────────────────────────── */
+#scene-layer{
+  position:absolute;
+  top:var(--lbh); bottom:var(--lbh); left:0; right:0;
+  overflow:hidden;
+}
+
+#scene-bg{
+  position:absolute; inset:0;
+  background-size:cover; background-position:center;
+  background-color:#1A1208;
+  transition:opacity 1.4s ease;
+  transform:scale(1.03); /* slight zoom for cinematic crop */
+  animation:bgSlow 30s ease-in-out infinite alternate;
+}
+
+@keyframes bgSlow{
+  from{ transform:scale(1.03) translateX(0); }
+  to  { transform:scale(1.06) translateX(-1%); }
+}
+
+/* Color grade — warm cinematic */
+#scene-bg::before{
+  content:''; position:absolute; inset:0; pointer-events:none;
+  background:linear-gradient(160deg,
+    rgba(30,12,0,0.38) 0%,
+    rgba(0,0,0,0.12) 40%,
+    rgba(0,10,20,0.28) 100%);
+}
+
+/* Vignette */
+#vig{
+  position:absolute; inset:0; z-index:3; pointer-events:none;
+  background:radial-gradient(ellipse 88% 88% at 50% 50%,
+    transparent 38%, rgba(0,0,0,0.72) 100%);
+}
+
+/* Film grain */
+#grain{
+  position:absolute; inset:0; z-index:4; pointer-events:none;
+  opacity:0.055; mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='250' height='250'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='250' height='250' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size:250px 250px;
+}
+
+/* Scan lines */
+#scanlines{
+  position:absolute; inset:0; z-index:5; pointer-events:none;
+  opacity:0.04;
+  background:repeating-linear-gradient(
+    to bottom, transparent 0px, transparent 3px,
+    rgba(0,0,0,1) 3px, rgba(0,0,0,1) 4px);
+}
+
+/* ── HUD overlays ────────────────────────────────────────────── */
+
+/* Body-cam style indicator */
+#bodycam-hud{
+  position:absolute; top:8px; left:10px;
+  z-index:20; pointer-events:none;
+  font-size:0.58rem; letter-spacing:0.2em; color:#CC2200;
+  display:flex; align-items:center; gap:6px;
+  opacity:0; transition:opacity 0.6s;
+}
+#bodycam-hud.visible{ opacity:1; }
+#rec-dot{ width:7px;height:7px;border-radius:50%;background:#CC2200;
+  animation:recBlink 1s step-end infinite; }
+@keyframes recBlink{ 50%{opacity:0;} }
+
+#timestamp{
+  position:absolute; top:8px; right:10px;
+  z-index:20; pointer-events:none;
+  font-size:0.55rem; letter-spacing:0.15em; color:rgba(200,168,75,0.6);
+  opacity:0; transition:opacity 0.6s;
+}
+#timestamp.visible{ opacity:1; }
+
+/* Instruction bar */
+#instr-bar{
+  position:absolute; top:0; left:0; right:0;
+  padding:7px 16px;
+  background:rgba(0,0,0,0.78);
+  border-bottom:1px solid rgba(200,168,75,0.22);
+  z-index:40; text-align:center;
+  font-size:0.65rem; letter-spacing:0.2em; color:var(--gold);
+  pointer-events:none; opacity:0; transition:opacity 0.5s 0.2s;
+}
+#instr-bar.on{ opacity:1; }
+
+/* Scene meta text */
+#scene-meta{
+  position:absolute; bottom:10%; left:4%;
+  z-index:20; pointer-events:none;
+  max-width:55%;
+}
+.smeta-tag{
+  font-size:0.6rem; letter-spacing:0.38em; color:var(--gold);
+  text-transform:uppercase; margin-bottom:7px;
+  opacity:0; transform:translateY(10px);
+  transition:all 0.9s 0.4s ease;
+}
+.smeta-title{
+  font-size:1.25rem; font-weight:700; color:#fff; line-height:1.35;
+  text-shadow:0 2px 24px rgba(0,0,0,0.95);
+  opacity:0; transform:translateY(10px);
+  transition:all 0.9s 0.75s ease;
+}
+#scene-meta.show .smeta-tag,
+#scene-meta.show .smeta-title{ opacity:1; transform:translateY(0); }
+
+/* ── Walking character ───────────────────────────────────────── */
+#char{
+  position:absolute; bottom:12%; left:-7%;
+  z-index:15;
+  transition:left 4.2s cubic-bezier(0.25,0.1,0.25,1);
+  filter:drop-shadow(0 8px 24px rgba(0,0,0,0.95));
+  transform-origin:bottom center;
+}
+#char.walking{ animation:charBob 0.42s ease-in-out infinite alternate; }
+#char.idle   { animation:charIdle 2.2s ease-in-out infinite alternate; }
+@keyframes charBob { from{transform:translateY(0);} to{transform:translateY(-6px);} }
+@keyframes charIdle{ from{transform:translateY(0) rotate(-0.4deg);}
+                     to  {transform:translateY(-3px) rotate(0.4deg);} }
+
+/* ── Hazard spots ────────────────────────────────────────────── */
+.hspot{
+  position:absolute; width:70px; height:70px;
+  transform:translate(-50%,-50%);
+  cursor:crosshair; z-index:30; border-radius:50%;
+}
+.hspot::before{
+  content:''; position:absolute; inset:6px; border-radius:50%;
+  border:2px solid rgba(255,155,20,0.1);
+  animation:hpulse 2.8s ease-in-out infinite;
+  transition:border-color 0.4s, box-shadow 0.4s;
+}
+.hspot:hover::before{
+  border-color:rgba(255,155,20,0.35);
+  box-shadow:0 0 18px rgba(255,155,20,0.2);
+}
+.hspot.hinted::before{
+  border-color:rgba(255,155,20,0.6);
+  box-shadow:0 0 28px rgba(255,155,20,0.35);
+  animation:hpulse 1.2s ease-in-out infinite;
+}
+.hspot.found{ pointer-events:none; }
+.hspot.found::before{
+  border-color:rgba(50,200,70,0.7);
+  box-shadow:0 0 28px rgba(50,200,70,0.45);
+  animation:none;
+}
+.hspot.found::after{
+  content:'✓'; position:absolute; inset:6px;
+  display:flex; align-items:center; justify-content:center;
+  font-size:1.4rem; color:#50D060; font-weight:700;
+  text-shadow:0 0 14px rgba(50,200,70,0.9);
+}
+@keyframes hpulse{
+  0%,100%{ transform:scale(1); opacity:0.8; }
+  50%    { transform:scale(1.45); opacity:0.2; }
+}
+
+/* ── Found notification ──────────────────────────────────────── */
+#found-toast{
+  position:absolute; top:18%; left:50%;
+  transform:translateX(-50%) translateY(-16px);
+  background:rgba(8,6,4,0.94);
+  border:1px solid var(--gold);
+  border-radius:2px; padding:12px 28px;
+  z-index:60; text-align:center;
+  opacity:0; pointer-events:none;
+  transition:all 0.35s ease;
+  white-space:nowrap;
+}
+#found-toast.show{
+  opacity:1; transform:translateX(-50%) translateY(0);
+}
+.ft-label{ font-size:0.6rem; letter-spacing:0.28em; color:var(--gold); margin-bottom:4px; }
+.ft-name { font-size:1rem; font-weight:700; color:#fff; letter-spacing:0.05em; }
+
+/* ── Transition overlay ──────────────────────────────────────── */
+#trans{
+  position:absolute; inset:0; background:#000;
+  opacity:0; z-index:80; pointer-events:none;
+  transition:opacity 0.85s ease;
+}
+#trans.on{ opacity:1; pointer-events:all; }
+
+/* ── Score pop ───────────────────────────────────────────────── */
+.score-pop{
+  position:absolute; font-size:1.2rem; font-weight:700;
+  color:var(--gold); pointer-events:none; z-index:50;
+  animation:scorePop 1.2s ease forwards;
+}
+@keyframes scorePop{
+  0%  { opacity:1; transform:translateY(0) scale(1); }
+  60% { opacity:1; transform:translateY(-40px) scale(1.2); }
+  100%{ opacity:0; transform:translateY(-70px) scale(0.9); }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   SIDEBAR STYLES
+   ══════════════════════════════════════════════════════════════ */
+
+.sb-head{
+  font-size:0.58rem; letter-spacing:0.32em; color:var(--gold);
+  text-transform:uppercase; padding-bottom:8px; margin-bottom:4px;
+  border-bottom:1px solid var(--border);
+}
+.sb-scene-num{
+  font-size:0.6rem; color:#3A3020; letter-spacing:0.15em;
+  margin-bottom:12px;
+}
+
+/* Hazard boxes */
+.hbox{
+  border:1px dashed #1E1A10; border-radius:2px;
+  min-height:68px; margin-bottom:7px;
+  padding:8px 10px; display:flex; align-items:center; gap:9px;
+  background:#090806; transition:all 0.5s ease;
+  position:relative; overflow:hidden;
+}
+.hbox::before{
+  content:''; position:absolute;
+  top:0; left:0; width:3px; height:100%;
+  background:transparent; transition:background 0.5s;
+}
+.hbox.filled{ border-color:var(--gold2); border-style:solid; background:#0E0B00; }
+.hbox.filled::before{ background:var(--gold); }
+
+.hb-num{
+  font-size:1.1rem; color:#201C10; min-width:24px;
+  text-align:center; font-weight:700;
+}
+.hb-icon{ font-size:1.6rem; min-width:30px; text-align:center; display:none; }
+.hb-label{
+  font-size:0.62rem; color:var(--gold); font-weight:700;
+  letter-spacing:0.08em; text-transform:uppercase; display:none;
+  margin-bottom:3px;
+}
+.hb-desc{ font-size:0.56rem; color:#5A5040; line-height:1.35; display:none; }
+
+.hbox.filled .hb-num  { display:none; }
+.hbox.filled .hb-icon { display:block; }
+.hbox.filled .hb-label{ display:block; }
+.hbox.filled .hb-desc { display:block; }
+
+/* Score block */
+.sb-div{ height:1px; background:var(--border); margin:12px 0; }
+
+.score-row{
+  display:flex; justify-content:space-between; align-items:baseline;
+  margin-bottom:4px;
+}
+.score-lbl{ font-size:0.55rem; letter-spacing:0.22em; color:#2A2418; }
+.score-val{ font-size:1.6rem; color:var(--gold); font-weight:700; }
+
+.found-lbl{
+  font-size:0.6rem; color:#2A2018; letter-spacing:0.1em;
+  margin-bottom:14px;
+}
+.found-lbl span{ color:var(--green); }
+
+/* Buttons */
+.sb-btn{
+  width:100%; padding:10px; background:transparent;
+  border:1px solid var(--border); border-radius:2px;
+  color:#282010; font-family:'Courier New',monospace;
+  font-size:0.65rem; letter-spacing:0.2em; cursor:pointer;
+  transition:all 0.3s; text-transform:uppercase; margin-bottom:7px;
+}
+.sb-btn:hover{ border-color:#554030; color:#554030; }
+.sb-btn.avail{ border-color:#5A3800; color:#7A5000; }
+.sb-btn.avail:hover{ border-color:var(--gold2); color:var(--gold2); }
+.sb-btn.ready{
+  border-color:var(--gold); color:var(--gold);
+  background:rgba(200,168,75,0.05);
+  box-shadow:0 0 18px rgba(200,168,75,0.1);
+}
+.sb-btn:disabled{ opacity:0.3; cursor:default; }
+
+/* ══════════════════════════════════════════════════════════════
+   INTRO / RESULTS SCREENS
+   ══════════════════════════════════════════════════════════════ */
+
+.fullscreen{
+  position:absolute; inset:0; background:#000;
+  display:flex; flex-direction:column;
+  align-items:center; justify-content:center;
+  z-index:100; text-align:center;
+  transition:opacity 0.8s;
+}
+.fullscreen.hidden{ opacity:0; pointer-events:none; }
+
+/* Intro */
+.i-eye{
+  font-size:0.58rem; letter-spacing:0.55em; color:#3A2C10;
+  text-transform:uppercase; margin-bottom:22px;
+}
+.i-title{
+  font-size:clamp(1.8rem,4vw,2.8rem); font-weight:700;
+  color:#fff; letter-spacing:0.08em; margin-bottom:6px; line-height:1.1;
+}
+.i-title span{ color:var(--gold); }
+.i-sub{
+  font-size:0.7rem; color:#3A3020; letter-spacing:0.18em;
+  margin-bottom:36px;
+}
+.i-desc{
+  font-size:0.76rem; color:#6A6050; max-width:400px;
+  line-height:1.78; margin-bottom:44px;
+}
+.i-desc strong{ color:#8A7850; }
+.i-btn{
+  padding:14px 52px; border:1px solid var(--gold2);
+  background:transparent; color:var(--gold);
+  font-family:'Courier New',monospace; font-size:0.78rem;
+  letter-spacing:0.32em; cursor:pointer; transition:all 0.35s;
+  text-transform:uppercase;
+}
+.i-btn:hover{
+  background:rgba(200,168,75,0.08);
+  box-shadow:0 0 30px rgba(200,168,75,0.15);
+  border-color:var(--gold);
+}
+
+/* Results */
+.r-grade{
+  font-size:5rem; font-weight:700; color:var(--gold);
+  letter-spacing:0.05em; line-height:1; margin-bottom:4px;
+}
+.r-verdict{ font-size:0.62rem; letter-spacing:0.4em; color:#3A3020; margin-bottom:28px; }
+.r-score{ font-size:3.2rem; font-weight:700; color:#fff; margin-bottom:2px; }
+.r-slbl{ font-size:0.58rem; letter-spacing:0.3em; color:#2A2418; margin-bottom:30px; }
+.r-grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; width:320px; margin-bottom:36px; }
+.r-stat{
+  background:#0A0806; border:1px solid var(--border);
+  padding:14px; text-align:center;
+}
+.r-sv{ font-size:1.35rem; color:var(--gold); font-weight:700; }
+.r-sl{ font-size:0.58rem; color:#2A2418; letter-spacing:0.2em; margin-top:4px; }
+.r-btn{
+  padding:12px 40px; border:1px solid #2A2010; background:transparent;
+  color:#3A3020; font-family:'Courier New',monospace; font-size:0.68rem;
+  letter-spacing:0.25em; cursor:pointer; transition:all 0.3s;
+  text-transform:uppercase;
+}
+.r-btn:hover{ border-color:var(--gold2); color:var(--gold2); }
+
+</style>
+</head>
+<body>
+<div id="root">
+
+  <!-- ─── Game viewport ─────────────────────────────────── -->
+  <div id="game-wrap">
+
+    <!-- Letterbox bars -->
+    <div class="lb" id="lb-t"></div>
+    <div class="lb" id="lb-b"></div>
+
+    <!-- Scene layer -->
+    <div id="scene-layer">
+      <div id="scene-bg"></div>
+      <div id="vig"></div>
+      <div id="grain"></div>
+      <div id="scanlines"></div>
+
+      <!-- Body-cam HUD -->
+      <div id="bodycam-hud">
+        <div id="rec-dot"></div>
+        <span>REC</span>
+        <span id="scene-counter" style="color:rgba(200,168,75,0.5);margin-left:4px;"></span>
+      </div>
+      <div id="timestamp"></div>
+
+      <!-- Walking character -->
+      <div id="char"></div>
+
+      <!-- Hazard hotspots -->
+      <div id="hazard-layer"></div>
+
+      <!-- Scene narrative text -->
+      <div id="scene-meta">
+        <div class="smeta-tag" id="smeta-tag"></div>
+        <div class="smeta-title" id="smeta-title"></div>
+      </div>
+
+      <!-- Instruction bar -->
+      <div id="instr-bar">FIND ALL 5 ENVIRONMENTAL HAZARDS — CLICK WHEN YOU SEE ONE</div>
+
+      <!-- Found notification -->
+      <div id="found-toast">
+        <div class="ft-label">HAZARD IDENTIFIED</div>
+        <div class="ft-name" id="ft-name">—</div>
+      </div>
+
+      <!-- Scene fade overlay -->
+      <div id="trans"></div>
+    </div><!-- /scene-layer -->
+
+    <!-- Intro screen -->
+    <div class="fullscreen" id="intro">
+      <div class="i-eye">Environmental Safety Training — Interactive Module</div>
+      <div class="i-title">ECOSITE<br><span>HIDDEN HAZARDS</span></div>
+      <div class="i-sub">A CONSTRUCTION SITE INVESTIGATION</div>
+      <div class="i-desc">
+        You are an <strong>Environmental Compliance Officer</strong> conducting
+        a full site walkthrough. Move through <strong>5 zones</strong> of an active
+        construction site and identify every environmental hazard before the
+        site visit report is filed.<br><br>
+        Each scene hides <strong>5 real-world hazards</strong>. Tap them to log them.
+      </div>
+      <button class="i-btn" id="start-btn">BEGIN INSPECTION</button>
+    </div>
+
+    <!-- Results screen -->
+    <div class="fullscreen hidden" id="results">
+      <div class="r-grade" id="r-grade">B</div>
+      <div class="r-verdict">INSPECTION COMPLETE</div>
+      <div class="r-score" id="r-score">0</div>
+      <div class="r-slbl">FINAL SCORE</div>
+      <div class="r-grid">
+        <div class="r-stat"><div class="r-sv" id="rs-found">0</div><div class="r-sl">HAZARDS FOUND</div></div>
+        <div class="r-stat"><div class="r-sv" id="rs-scenes">0</div><div class="r-sl">SCENES CLEARED</div></div>
+        <div class="r-stat"><div class="r-sv" id="rs-acc">0%</div><div class="r-sl">ACCURACY</div></div>
+        <div class="r-stat"><div class="r-sv" id="rs-hints">0</div><div class="r-sl">HINTS USED</div></div>
+      </div>
+      <button class="r-btn" id="again-btn">INSPECT AGAIN</button>
+    </div>
+
+  </div><!-- /game-wrap -->
+
+  <!-- ─── Sidebar ───────────────────────────────────────── -->
+  <div id="sidebar">
+    <div class="sb-head">Hazards Found</div>
+    <div class="sb-scene-num" id="sb-snum">Scene 1 of 5</div>
+
+    <div class="hbox" id="hb0">
+      <div class="hb-num">1</div>
+      <div class="hb-icon"></div>
+      <div style="flex:1">
+        <div class="hb-label"></div>
+        <div class="hb-desc"></div>
+      </div>
+    </div>
+    <div class="hbox" id="hb1">
+      <div class="hb-num">2</div>
+      <div class="hb-icon"></div>
+      <div style="flex:1">
+        <div class="hb-label"></div>
+        <div class="hb-desc"></div>
+      </div>
+    </div>
+    <div class="hbox" id="hb2">
+      <div class="hb-num">3</div>
+      <div class="hb-icon"></div>
+      <div style="flex:1">
+        <div class="hb-label"></div>
+        <div class="hb-desc"></div>
+      </div>
+    </div>
+    <div class="hbox" id="hb3">
+      <div class="hb-num">4</div>
+      <div class="hb-icon"></div>
+      <div style="flex:1">
+        <div class="hb-label"></div>
+        <div class="hb-desc"></div>
+      </div>
+    </div>
+    <div class="hbox" id="hb4">
+      <div class="hb-num">5</div>
+      <div class="hb-icon"></div>
+      <div style="flex:1">
+        <div class="hb-label"></div>
+        <div class="hb-desc"></div>
+      </div>
+    </div>
+
+    <div class="sb-div"></div>
+
+    <div class="score-row">
+      <div class="score-lbl">SCORE</div>
+      <div class="score-val" id="score-val">0</div>
+    </div>
+    <div class="found-lbl" id="found-lbl"><span id="found-n">0</span> of 5 found</div>
+
+    <button class="sb-btn" id="hint-btn">USE HINT (×3)</button>
+    <button class="sb-btn" id="next-btn" style="margin-top:auto">NEXT SCENE →</button>
+  </div>
+
+</div><!-- /root -->
+
+<script>
+/* ═══════════════════════════════════════════════════════════════
+   LEVEL DATA
+   ═══════════════════════════════════════════════════════════════ */
+
+const LEVELS = [
+  {
+    tag:'SCENE 01  ·  SITE ENTRANCE',
+    title:'The inspector arrives. Not everything at the entrance is compliant...',
+    img:'https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=1920&q=82&fit=crop',
+    bg:'linear-gradient(135deg,#2A1A08,#1A1208,#0E0A04)',
+    hazards:[
+      { x:15, y:60, icon:'🛢️', label:'Chemical Drum Spill',      desc:'Leaking drums near entrance drain — contamination imminent' },
+      { x:33, y:45, icon:'⚠️', label:'Torn Evacuation Signage',  desc:'Emergency route sign damaged — workers cannot exit safely' },
+      { x:55, y:68, icon:'🕳️', label:'Unfiltered Open Drain',    desc:'No silt trap fitted — runoff flows directly to watercourse' },
+      { x:72, y:52, icon:'🪖', label:'Contaminated PPE on Ground',desc:'Respirator left in dust — renders it useless when needed' },
+      { x:85, y:62, icon:'🚧', label:'Blocked Emergency Exit',    desc:'Materials stacked against exit — fatal in an emergency' },
+    ]
+  },
+  {
+    tag:'SCENE 02  ·  CHEMICAL STORAGE',
+    title:'Rows of drums in the storage yard. Several are not as they should be...',
+    img:'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=1920&q=82&fit=crop',
+    bg:'linear-gradient(135deg,#1A0E08,#140A04,#0A0604)',
+    hazards:[
+      { x:20, y:58, icon:'🪣', label:'Open Chemical Container',   desc:'Unsealed drum releasing toxic VOCs into the atmosphere' },
+      { x:42, y:70, icon:'💧', label:'No Secondary Containment',  desc:'Bund wall missing — any spill flows straight to ground' },
+      { x:62, y:44, icon:'❓', label:'Unlabelled Drum',           desc:'Unknown contents — firefighters cannot respond safely' },
+      { x:78, y:62, icon:'🫧', label:'Solvent Spill on Earth',    desc:'Hydrocarbon soaking into bare soil — groundwater at risk' },
+      { x:30, y:34, icon:'🔴', label:'Severely Corroded Barrel',  desc:'Structural integrity failed — imminent rupture risk' },
+    ]
+  },
+  {
+    tag:'SCENE 03  ·  EXCAVATION ZONE',
+    title:'Deep ground works expose the site to serious environmental risk...',
+    img:'https://images.unsplash.com/photo-1541888946425-d81bb19240f5?w=1920&q=82&fit=crop',
+    bg:'linear-gradient(135deg,#1E1408,#140E04,#0A0804)',
+    hazards:[
+      { x:22, y:65, icon:'⛏️', label:'Unguarded Excavation Edge', desc:'No edge barrier — fall risk and uncontrolled soil collapse' },
+      { x:50, y:35, icon:'💨', label:'Silica Dust Plume',         desc:'No suppression — workers inhaling crystalline silica' },
+      { x:66, y:55, icon:'⛰️', label:'Unstable Spoil Heap',       desc:'Unsupported soil — collapse and erosion into drainage' },
+      { x:82, y:46, icon:'🌊', label:'Contaminated Groundwater Seep', desc:'Dark water entering excavation — hydrocarbon plume suspected' },
+      { x:38, y:74, icon:'🌿', label:'Uncontained Soil Erosion',  desc:'No erosion mat — topsoil washing into storm drain below' },
+    ]
+  },
+  {
+    tag:'SCENE 04  ·  BUILDING STRUCTURE',
+    title:'Inside the rising frame, hazards hide in every shadow...',
+    img:'https://images.unsplash.com/photo-1585771724684-38269d6639fd?w=1920&q=82&fit=crop',
+    bg:'linear-gradient(135deg,#180E0E,#120A08,#080606)',
+    hazards:[
+      { x:18, y:74, icon:'🗑️', label:'Mixed Hazardous Waste',     desc:'Unsegregated waste prevents lawful disposal and recycling' },
+      { x:46, y:40, icon:'⚡', label:'Exposed Live Cabling',       desc:'Bare electrical cable near water — electrocution risk' },
+      { x:70, y:32, icon:'🛑', label:'Missing Edge Protection',    desc:'Open floor void with no guard — fall from height' },
+      { x:56, y:76, icon:'🏗️', label:'Cement Washout Spill',       desc:'Alkaline slurry — toxic to aquatic life if it reaches drain' },
+      { x:84, y:54, icon:'🔬', label:'Disturbed Legacy Insulation',desc:'Suspect asbestos fibres released without proper testing' },
+    ]
+  },
+  {
+    tag:'SCENE 05  ·  DRAINAGE & WASTE',
+    title:'The final zone — where waste meets water. The most critical inspection...',
+    img:'https://images.unsplash.com/photo-1581094794329-c8112a89af12?w=1920&q=82&fit=crop',
+    bg:'linear-gradient(135deg,#0E1208,#080E08,#040A04)',
+    hazards:[
+      { x:26, y:66, icon:'♻️', label:'Mixed-Waste Skips',          desc:'Hazardous and general waste combined — illegal disposal' },
+      { x:50, y:72, icon:'💧', label:'Unfiltered Drain Outlet',    desc:'No silt trap — sediment entering protected watercourse' },
+      { x:70, y:58, icon:'☠️', label:'Chemical Adjacent to Stream',desc:'Solvent waste stored next to water — catastrophic breach risk' },
+      { x:38, y:46, icon:'🌫️', label:'Turbid Discharge',           desc:'Cloudy water release — EA reportable offence, heavy fine' },
+      { x:84, y:65, icon:'🪣', label:'Illegally Fly-Tipped Waste', desc:'Paint/solvent containers dumped — serious land contamination' },
+    ]
+  },
+];
+
+/* ═══════════════════════════════════════════════════════════════
+   GAME STATE & DOM
+   ═══════════════════════════════════════════════════════════════ */
+
+const S = {
+  lvl:0, score:0, totalFound:0, scenesCleared:0,
+  foundNow:0, hintsLeft:3, hintsUsed:0,
+  transitioning:false, hintActive:false,
+};
+
+const $ = id => document.getElementById(id);
+
+const dom = {
+  sceneBg:    $('scene-bg'),
+  char:       $('char'),
+  hLayer:     $('hazard-layer'),
+  smeta:      $('scene-meta'),
+  smetaTag:   $('smeta-tag'),
+  smetaTitle: $('smeta-title'),
+  instrBar:   $('instr-bar'),
+  toast:      $('found-toast'),
+  toastName:  $('ft-name'),
+  trans:      $('trans'),
+  bchud:      $('bodycam-hud'),
+  timestamp:  $('timestamp'),
+  sceneCtr:   $('scene-counter'),
+  sbSnum:     $('sb-snum'),
+  scoreVal:   $('score-val'),
+  foundN:     $('found-n'),
+  hintBtn:    $('hint-btn'),
+  nextBtn:    $('next-btn'),
+  hboxes:     [0,1,2,3,4].map(i=>$(`hb${i}`)),
+  intro:      $('intro'),
+  results:    $('results'),
+  rGrade:     $('r-grade'),
+  rScore:     $('r-score'),
+  rsFound:    $('rs-found'),
+  rsScenes:   $('rs-scenes'),
+  rsAcc:      $('rs-acc'),
+  rsHints:    $('rs-hints'),
+};
+
+/* ── Character SVG ───────────────────────────────────────────── */
+dom.char.innerHTML=`
+<svg width="42" height="96" viewBox="0 0 42 96" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <ellipse cx="21" cy="11" rx="15" ry="5.5" fill="#D06A00"/>
+  <ellipse cx="21" cy="13" rx="10.5" ry="4.5" fill="#FF8800"/>
+  <circle cx="21" cy="20" r="9" fill="#1A0E04"/>
+  <rect x="3" y="26" width="8" height="18" rx="4" fill="#0A0806" transform="rotate(12 7 26)"/>
+  <rect x="31" y="26" width="8" height="18" rx="4" fill="#0A0806" transform="rotate(-12 35 26)"/>
+  <rect x="12" y="29" width="18" height="24" rx="2" fill="#1A0E04"/>
+  <rect x="12" y="32" width="18" height="3" fill="#FF6600" opacity="0.65"/>
+  <rect x="12" y="42" width="18" height="3" fill="#FF6600" opacity="0.65"/>
+  <rect id="ll" x="12" y="53" width="8" height="26" rx="4" fill="#090604" transform="rotate(14 16 53)"/>
+  <rect id="lr" x="22" y="53" width="8" height="26" rx="4" fill="#090604" transform="rotate(-14 26 53)"/>
+  <rect x="8"  y="76" width="12" height="6" rx="2" fill="#060402"/>
+  <rect x="22" y="78" width="12" height="6" rx="2" fill="#060402"/>
+</svg>`;
+
+/* ═══════════════════════════════════════════════════════════════
+   UTILITIES
+   ═══════════════════════════════════════════════════════════════ */
+
+const wait = ms => new Promise(r=>setTimeout(r,ms));
+
+function fadeIn()  { dom.trans.classList.add('on');    }
+function fadeOut() { dom.trans.classList.remove('on'); }
+
+function updateTimestamp() {
+  const now = new Date();
+  dom.timestamp.textContent =
+    `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}  ${now.toLocaleDateString('en-GB')}`;
+}
+
+function resetBoxes() {
+  dom.hboxes.forEach((b,i)=>{
+    b.classList.remove('filled');
+    b.querySelector('.hb-num').textContent = i+1;
+    b.querySelector('.hb-icon').textContent='';
+    b.querySelector('.hb-label').textContent='';
+    b.querySelector('.hb-desc').textContent='';
+    b.style.transform='';
+  });
+}
+
+function fillBox(idx, h) {
+  const b = dom.hboxes[idx];
+  b.querySelector('.hb-icon').textContent  = h.icon;
+  b.querySelector('.hb-label').textContent = h.label;
+  b.querySelector('.hb-desc').textContent  = h.desc;
+  b.style.transform='scale(0.94)';
+  b.classList.add('filled');
+  requestAnimationFrame(()=>{
+    b.style.transition='transform 0.45s cubic-bezier(0.34,1.56,0.64,1), all 0.5s';
+    b.style.transform='scale(1)';
+  });
+}
+
+function updateHUD() {
+  dom.scoreVal.textContent = S.score;
+  dom.foundN.textContent   = S.foundNow;
+}
+
+function showScorePop(el, pts) {
+  const pop = document.createElement('div');
+  pop.className='score-pop';
+  pop.textContent=`+${pts}`;
+  const rect = el.getBoundingClientRect();
+  const layer = document.getElementById('scene-layer').getBoundingClientRect();
+  pop.style.left = (rect.left - layer.left + 20)+'px';
+  pop.style.top  = (rect.top  - layer.top  - 10)+'px';
+  document.getElementById('scene-layer').appendChild(pop);
+  setTimeout(()=>pop.remove(), 1300);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   HAZARD SPOTS
+   ═══════════════════════════════════════════════════════════════ */
+
+function buildSpots(level) {
+  dom.hLayer.innerHTML='';
+  level.hazards.forEach((h,i)=>{
+    const el=document.createElement('div');
+    el.className='hspot';
+    el.style.left=h.x+'%';
+    el.style.top =h.y+'%';
+    el.dataset.i=i;
+    el.addEventListener('click',()=>onHazardClick(h,el,i));
+    dom.hLayer.appendChild(el);
+  });
+}
+
+function onHazardClick(h, el, i) {
+  if(el.classList.contains('found')) return;
+  el.classList.add('found');
+  S.hintActive=false;
+  document.querySelectorAll('.hspot').forEach(s=>s.classList.remove('hinted'));
+
+  // Points: 15 base, -3 if hint was used
+  const pts = 15 + (S.hintUsedThisScene ? 0 : 5);
+  S.score += pts;
+  S.foundNow++;
+  S.totalFound++;
+
+  fillBox(S.foundNow-1, h);
+  showScorePop(el, pts);
+  updateHUD();
+
+  dom.toastName.textContent = h.label;
+  dom.toast.classList.add('show');
+  setTimeout(()=>dom.toast.classList.remove('show'), 2400);
+
+  if(S.foundNow>=5){
+    S.scenesCleared++;
+    dom.instrBar.textContent='ALL 5 HAZARDS FOUND! OUTSTANDING WORK.';
+    dom.nextBtn.classList.add('ready');
+    setTimeout(()=>advance(), 3000);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   LEVEL LOADING
+   ═══════════════════════════════════════════════════════════════ */
+
+async function loadLevel(idx) {
+  const lv = LEVELS[idx];
+  S.foundNow=0; S.hintUsedThisScene=false;
+
+  resetBoxes();
+  dom.nextBtn.classList.remove('ready');
+  dom.hintBtn.disabled=false;
+  dom.hintBtn.classList.remove('avail');
+  dom.smeta.classList.remove('show');
+  dom.instrBar.classList.remove('on');
+  dom.sbSnum.textContent = `Scene ${idx+1} of ${LEVELS.length}`;
+  dom.sceneCtr.textContent = `${idx+1}/${LEVELS.length}`;
+  updateHUD();
+
+  // Set background — img with gradient fallback
+  dom.sceneBg.style.backgroundImage = `url('${lv.img}'), ${lv.bg}`;
+
+  buildSpots(lv);
+
+  // Fade in scene
+  fadeOut();
+  await wait(1000);
+
+  // Activate HUD indicators
+  dom.bchud.classList.add('visible');
+  dom.timestamp.classList.add('visible');
+  setInterval(updateTimestamp,1000);
+  updateTimestamp();
+
+  // Set narrative text
+  dom.smetaTag.textContent   = lv.tag;
+  dom.smetaTitle.textContent = lv.title;
+
+  // Walk character in
+  dom.char.className='';
+  dom.char.classList.add('walking');
+  dom.char.style.left='-7%';
+  await wait(200);
+  dom.char.style.left = idx < LEVELS.length-1 ? '44%' : '55%';
+
+  await wait(2000);
+  dom.smeta.classList.add('show');
+
+  await wait(1500);
+  dom.char.classList.remove('walking');
+  dom.char.classList.add('idle');
+
+  await wait(600);
+  dom.instrBar.classList.add('on');
+
+  // Make hint available after 12 seconds
+  setTimeout(()=>{
+    if(S.lvl===idx && S.foundNow<5 && S.hintsLeft>0) {
+      dom.hintBtn.classList.add('avail');
+      dom.hintBtn.textContent=`USE HINT (×${S.hintsLeft})`;
+    }
+  }, 12000);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ADVANCE / RESULTS
+   ═══════════════════════════════════════════════════════════════ */
+
+async function advance() {
+  if(S.transitioning) return;
+  S.transitioning=true;
+
+  dom.smeta.classList.remove('show');
+  dom.instrBar.classList.remove('on');
+  fadeIn();
+  await wait(950);
+
+  S.lvl++;
+  S.transitioning=false;
+
+  if(S.lvl>=LEVELS.length) { showResults(); return; }
+  loadLevel(S.lvl);
+}
+
+function showResults() {
+  const total=LEVELS.length*5;
+  const pct=Math.round((S.totalFound/total)*100);
+  let grade='F';
+  if(pct>=95) grade='A+';
+  else if(pct>=85) grade='A';
+  else if(pct>=75) grade='B+';
+  else if(pct>=65) grade='B';
+  else if(pct>=55) grade='C';
+  else if(pct>=45) grade='D';
+
+  dom.rGrade.textContent   = grade;
+  dom.rScore.textContent   = S.score;
+  dom.rsFound.textContent  = `${S.totalFound}/${total}`;
+  dom.rsScenes.textContent = `${S.scenesCleared}/${LEVELS.length}`;
+  dom.rsAcc.textContent    = pct+'%';
+  dom.rsHints.textContent  = S.hintsUsed;
+
+  dom.results.classList.remove('hidden');
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   HINT SYSTEM
+   ═══════════════════════════════════════════════════════════════ */
+
+function activateHint() {
+  if(S.hintsLeft<=0 || S.hintActive) return;
+  S.hintsLeft--;
+  S.hintsUsed++;
+  S.hintActive=true;
+  S.hintUsedThisScene=true;
+
+  dom.hintBtn.textContent=`USE HINT (×${S.hintsLeft})`;
+  if(S.hintsLeft===0){ dom.hintBtn.disabled=true; dom.hintBtn.classList.remove('avail'); }
+
+  document.querySelectorAll('.hspot:not(.found)').forEach(s=>{
+    s.classList.add('hinted');
+  });
+  setTimeout(()=>{
+    S.hintActive=false;
+    document.querySelectorAll('.hspot').forEach(s=>s.classList.remove('hinted'));
+  }, 4500);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   EVENTS
+   ═══════════════════════════════════════════════════════════════ */
+
+$('start-btn').addEventListener('click', async ()=>{
+  dom.intro.classList.add('hidden');
+  await wait(400);
+  loadLevel(0);
+});
+
+$('next-btn').addEventListener('click', ()=>{ if(!S.transitioning) advance(); });
+
+$('hint-btn').addEventListener('click', ()=>{
+  if(dom.hintBtn.classList.contains('avail')) activateHint();
+});
+
+$('again-btn').addEventListener('click', ()=>{
+  Object.assign(S,{lvl:0,score:0,totalFound:0,scenesCleared:0,
+    foundNow:0,hintsLeft:3,hintsUsed:0,transitioning:false,hintActive:false});
+  dom.results.classList.add('hidden');
+  dom.trans.classList.remove('on');
+  loadLevel(0);
+});
+
+</script>
+</body>
+</html>
